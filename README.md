@@ -77,42 +77,59 @@ curl -X POST http://127.0.0.1:8001/predict -H "Content-Type: application/json" -
 ## 2. Probar Docker
 
 ```bat
-docker build -t telco-api:v1 .
-docker run --rm -p 8000:8000 --name telco-api telco-api:v1
+docker build -t diagnosis-cancer:v1 .
+docker run --rm -p 8000:8000 --name diagnosis-cancer diagnosis-cancer:v1
 ```
 
 Abrir `http://127.0.0.1:8000/docs`. Detener con Ctrl+C.
 
 ## 3. Publicar en GitHub
 
-Crear un repositorio vacío llamado `telco-churn-cicd`. Sustituir `TU_USUARIO`:
+Crear un repositorio vacío llamado `diagnosis-cancer`. Sustituir `TU_USUARIO`:
 
 ```bat
 git init -b main
 git add .
 git commit -m "Proyecto inicial CI CD"
-git remote add origin https://github.com/TU_USUARIO/telco-churn-cicd.git
+git remote add origin https://github.com/TU_USUARIO/diagnosis-cancer.git
 git push -u origin main
 ```
 
-En **Actions**, observar los jobs `test` y `docker`. La publicación ocurre solo en push a `main` después de pasar las pruebas. En Pull Request se ejecutan pruebas, pero no se publica la imagen.
+En **Actions**, observar los jobs `test`, `docker` y `deploy`. La publicación ocurre solo en push a `main` después de pasar las pruebas. En Pull Request se ejecutan pruebas, pero no se publican imágenes ni se despliega.
+
+### Despliegue automático en AWS App Runner
+
+El job `docker` publica la imagen en Amazon ECR y GHCR. Después, `deploy` inicia un despliegue del servicio App Runner en cada push a `main` que supera las pruebas. App Runner ejecuta la imagen con acceso público para que la interfaz y la API puedan abrirse desde el navegador.
+
+Configura AWS antes del primer push:
+
+1. Crea un repositorio privado de Amazon ECR llamado `diagnosis-cancer`.
+2. Configura el proveedor OIDC de GitHub Actions (`token.actions.githubusercontent.com`) y un rol IAM que confíe solo en `repo:omarCamel/diagnosis-cancer:ref:refs/heads/main`, con audiencia `sts.amazonaws.com`.
+3. Concede a ese rol permisos para autenticarse y publicar imágenes en ECR (`ecr:GetAuthorizationToken`, `ecr:BatchCheckLayerAvailability`, `ecr:CompleteLayerUpload`, `ecr:InitiateLayerUpload`, `ecr:PutImage` y `ecr:UploadLayerPart`) y para iniciar despliegues del servicio (`apprunner:StartDeployment`). `ecr:GetAuthorizationToken` requiere `Resource: "*"`, restringe las demás acciones de ECR al repositorio `diagnosis-cancer` y `StartDeployment` al ARN del servicio.
+4. En **Settings → Secrets and variables → Actions** del repositorio, añade:
+   - Secret `AWS_ROLE_TO_ASSUME`: ARN del rol IAM de GitHub Actions.
+   - Variable `AWS_REGION`: región de AWS, por ejemplo `us-east-1`.
+5. Ejecuta un push a `main` para publicar la imagen en ECR. Crea el servicio en **AWS App Runner → Create service**, selecciona **Amazon ECR** y la imagen `diagnosis-cancer:latest`, asigna un rol de acceso a ECR con la política administrada `AWSAppRunnerServicePolicyForECRAccess` (la consola puede crearlo), configura el servicio como público y desactiva los despliegues automáticos de ECR para evitar duplicar el job de GitHub. App Runner desplegará esta imagen inicial.
+6. Copia el ARN del servicio y guárdalo como variable de Actions `AWS_APP_RUNNER_SERVICE_ARN`. A partir de entonces, cada push a `main` inicia un nuevo despliegue. El ARN no es secreto; si la variable todavía no existe, el job `deploy` se omite.
+
+El workflow usa OpenID Connect y no requiere guardar claves de acceso de AWS en GitHub. La URL pública del servicio aparece en la consola de App Runner. La imagen también sigue publicándose en GHCR.
 
 ## 4. Provocar y corregir un fallo
 
-En `tests/test_health.py`, cambiar temporalmente el esperado `200` por `404`. Hacer commit y push. Comprobar que `test` falla y `docker` no se ejecuta. Restaurar `200`, hacer otro commit y push; comprobar que ambos jobs terminan correctamente.
+En `tests/test_health.py`, cambiar temporalmente el esperado `200` por `404`. Hacer commit y push. Comprobar que `test` falla y que no se ejecutan `docker` ni `deploy`. Restaurar `200`, hacer otro commit y push; comprobar que los jobs terminan correctamente.
 
 ## 5. Descargar desde GHCR
 
-La imagen publicada usa el formato `ghcr.io/tu_usuario/telco-churn-cicd:latest`, en minúsculas. Si el paquete es privado, autenticar Docker con credenciales autorizadas.
+La imagen publicada usa el formato `ghcr.io/tu_usuario/diagnosis-cancer:latest`, en minúsculas. Si el paquete es privado, autenticar Docker con credenciales autorizadas.
 
 ```bat
-docker pull ghcr.io/tu_usuario/telco-churn-cicd:latest
-docker run --rm -p 8000:8000 ghcr.io/tu_usuario/telco-churn-cicd:latest
+docker pull ghcr.io/tu_usuario/diagnosis-cancer:latest
+docker run --rm -p 8000:8000 ghcr.io/tu_usuario/diagnosis-cancer:latest
 ```
 
 ## Notas
 
 - `models/champion.joblib` contiene un pipeline completo de scikit-learn con preprocesamiento y RandomForest/SVM/LogisticRegression.
 - El dataset real del proyecto corresponde a diagnóstico de cáncer, con columnas como `diagnosis`, `radius_mean`, `texture_mean` y demás mediciones del tumor.
-- El workflow implementa integración continua y publicación de imagen (Continuous Delivery), no despliegue automático a producción.
+- El workflow ejecuta pruebas, publica la imagen en GHCR y Amazon ECR, e inicia el despliegue en AWS App Runner en cada push a `main`.
 - Para producción, fijar versiones exactas de dependencias, verificar el artefacto y usar datos/modelos validados.
