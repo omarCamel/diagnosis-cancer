@@ -52,6 +52,30 @@ python scripts/register_champion.py
 
 Y abrir `http://127.0.0.1:5000` para visualizar experimentos, parámetros y métricas. El experimento principal queda en `Cancer_Diagnosis` y el modelo registrado se llamará `CancerDiagnosisClassifier`.
 
+## 1.2. Orquestar entrenamiento con Apache Airflow
+
+En Windows, Airflow se ejecuta mediante Docker Desktop con contenedores Linux. Desde la raíz del proyecto, inicia Airflow y MLflow:
+
+```powershell
+docker compose -f docker-compose.airflow.yml up --build
+```
+
+Consulta la salida de inicio para obtener las credenciales generadas por Airflow:
+
+```powershell
+docker compose -f docker-compose.airflow.yml logs airflow
+```
+
+Abre `http://localhost:8080`, entra al DAG `train_and_register_cancer_model` y selecciona **Trigger DAG**. El DAG ejecuta primero `scripts/train.py` y, si termina correctamente, `scripts/register_champion.py`. MLflow estará disponible en `http://localhost:5000`.
+
+Para detener los servicios, ejecuta en otra terminal:
+
+```powershell
+docker compose -f docker-compose.airflow.yml down
+```
+
+La ejecución es manual y los datos de Airflow y MLflow se conservan en volúmenes de Docker al detener los servicios.
+
 ### Probar la API en un puerto libre
 
 ```bat

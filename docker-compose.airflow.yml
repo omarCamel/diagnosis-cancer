@@ -1,0 +1,43 @@
+services:
+  mlflow:
+    image: diagnosis-cancer-airflow:local
+    build:
+      context: .
+      dockerfile: Dockerfile.airflow
+    command:
+      - mlflow
+      - server
+      - --backend-store-uri
+      - sqlite:////opt/airflow/mlflow-data/mlflow.db
+      - --default-artifact-root
+      - /opt/airflow/mlflow-data/artifacts
+      - --host
+      - 0.0.0.0
+      - --port
+      - "5000"
+    ports:
+      - "5000:5000"
+    volumes:
+      - mlflow-data:/opt/airflow/mlflow-data
+
+  airflow:
+    image: diagnosis-cancer-airflow:local
+    command: standalone
+    depends_on:
+      - mlflow
+    environment:
+      AIRFLOW__CORE__EXECUTOR: SequentialExecutor
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: sqlite:////opt/airflow/data/airflow.db
+      EXPERIMENT_NAME: ${EXPERIMENT_NAME:-Cancer_Diagnosis}
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      MODEL_NAME: ${MODEL_NAME:-CancerDiagnosisClassifier}
+    ports:
+      - "8080:8080"
+    volumes:
+      - airflow-data:/opt/airflow/data
+      - mlflow-data:/opt/airflow/mlflow-data
+
+volumes:
+  airflow-data:
+  mlflow-data:

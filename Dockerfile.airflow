@@ -1,0 +1,16 @@
+FROM apache/airflow:2.10.5-python3.11
+
+USER root
+RUN mkdir -p /opt/airflow/data /opt/airflow/mlflow-data /opt/airflow/project/scripts \
+    && chown -R airflow:root /opt/airflow/data /opt/airflow/mlflow-data /opt/airflow/project
+
+USER airflow
+COPY airflow-requirements.txt /tmp/airflow-requirements.txt
+RUN pip install --no-cache-dir \
+    "apache-airflow==2.10.5" \
+    --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.10.5/constraints-3.11.txt" \
+    -r /tmp/airflow-requirements.txt
+
+COPY --chown=airflow:root dags/ /opt/airflow/dags/
+COPY --chown=airflow:root scripts/ /opt/airflow/project/scripts/
+COPY --chown=airflow:root data.csv /opt/airflow/project/data.csv

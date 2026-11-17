@@ -5,6 +5,7 @@
 __pycache__
 .pytest_cache
 *.pyc
+get-pip.py
 mlartifacts
 mlruns
 mlflow.db
