@@ -1,4 +1,20 @@
+from datetime import datetime
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field
+
+
+class PredictionResult(BaseModel):
+    prediction: int
+    diagnosis_probability: float
+    risk_level: Literal["Bajo", "Medio", "Alto"]
+    message: str
+
+
+class PredictionHistoryItem(PredictionResult):
+    id: int
+    created_at: datetime
+    input_features: dict[str, float]
 
 
 class CustomerInput(BaseModel):

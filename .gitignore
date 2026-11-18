@@ -7,6 +7,7 @@ __pycache__/
 mlruns/
 mlartifacts/
 mlflow.db
+predictions.db*
 *.joblib
 .env
 .env.*

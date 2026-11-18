@@ -34,6 +34,21 @@ Abrir `http://127.0.0.1:8001/`, `/docs` y `/health`.
 
 > Si el puerto 8000 está ocupado, usa `8001` o cualquier puerto libre. El modo `--reload` puede volver a intentar reusar el mismo puerto y generar conflicto si otra app ya está ejecutándose.
 
+Las predicciones se guardan en `predictions.db` (SQLite) y se pueden consultar en `/predictions?limit=20&offset=0`. El historial requiere la cabecera `X-History-API-Key`; configura la clave antes de iniciar la API:
+
+```powershell
+$env:PREDICTIONS_HISTORY_API_KEY = python -c "import secrets; print(secrets.token_urlsafe(32))"
+```
+
+Consulta el historial desde PowerShell:
+
+```powershell
+Invoke-RestMethod -Uri "http://127.0.0.1:8001/predictions" `
+  -Headers @{ "X-History-API-Key" = $env:PREDICTIONS_HISTORY_API_KEY }
+```
+
+El historial almacena las 30 características enviadas, además de fecha y resultado. No incluye nombre ni identificador de paciente; aun así, las mediciones son datos sensibles. SQLite está pensado aquí para uso local y no proporciona persistencia adecuada en App Runner. No despliegues esta configuración con tráfico público o datos reales: un despliegue persistente requiere una base gestionada, controles de acceso para las predicciones, y políticas de consentimiento, retención y eliminación.
+
 ## 1.1. Entrenar y registrar el modelo con MLflow
 
 El comando de `curl` del wizard es opcional; para arrancar localmente tu servidor de trazas basta con:
@@ -104,7 +119,18 @@ curl -X POST http://127.0.0.1:8001/predict -H "Content-Type: application/json" -
 
 ```bat
 docker build -t diagnosis-cancer:v1 .
-docker run --rm -p 8000:8000 --name diagnosis-cancer diagnosis-cancer:v1
+```
+
+Para conservar el historial después de eliminar el contenedor, crea un volumen Docker y móntalo:
+
+```powershell
+docker volume create predictions-data
+$env:PREDICTIONS_HISTORY_API_KEY = Read-Host "Define una clave local para consultar el historial"
+docker run --rm -p 127.0.0.1:8000:8000 `
+  -e PREDICTIONS_DB_PATH=/data/predictions.db `
+  -e PREDICTIONS_HISTORY_API_KEY=$env:PREDICTIONS_HISTORY_API_KEY `
+  -v predictions-data:/data `
+  --name diagnosis-cancer diagnosis-cancer:v1
 ```
 
 Abrir `http://127.0.0.1:8000/docs`. Detener con Ctrl+C.

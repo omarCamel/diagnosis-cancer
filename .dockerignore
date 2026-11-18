@@ -9,3 +9,4 @@ get-pip.py
 mlartifacts
 mlruns
 mlflow.db
+predictions.db*
