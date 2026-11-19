@@ -4,8 +4,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.airflow
-    command:
+    entrypoint:
       - mlflow
+    command:
       - server
       - --backend-store-uri
       - sqlite:////opt/airflow/mlflow-data/mlflow.db

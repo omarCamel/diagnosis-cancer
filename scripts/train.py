@@ -120,6 +120,7 @@ def train_and_log_model(model_name: str, model, X_train, X_test, y_train, y_test
         mlflow.sklearn.log_model(
             model,
             name="model",
+            serialization_format="skops",
             skops_trusted_types=SKOPS_TRUSTED_TYPES,
         )
 
