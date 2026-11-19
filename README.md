@@ -102,10 +102,18 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8001
 Validar:
 
 ```bat
-curl http://127.0.0.1:8001/health
-curl -X POST http://127.0.0.1:8001/predict -H "Content-Type: application/json" -d "{\"tenure\":5,\"MonthlyCharges\":85.5,\"TotalCharges\":427.5,\"Contract\":\"Month-to-month\",\"InternetService\":\"Fiber optic\"}"
+curl.exe http://127.0.0.1:8001/health
 ```
 
+Para probar `POST /predict`, utiliza una fila de `data.csv` sin las columnas `id` y `diagnosis`. Este ejemplo de PowerShell envía la primera fila:
+
+```powershell
+$sample = Import-Csv .\data.csv | Select-Object -First 1
+$payload = $sample | Select-Object -Property * -ExcludeProperty id, diagnosis
+$body = $payload | ConvertTo-Json -Compress
+Invoke-RestMethod -Uri "http://127.0.0.1:8001/predict" `
+  -Method Post -ContentType "application/json" -Body $body
+```
 
 ### Estructura recomendada
 
@@ -117,23 +125,82 @@ curl -X POST http://127.0.0.1:8001/predict -H "Content-Type: application/json" -
 
 ## 2. Probar Docker
 
+### Construir y ejecutar la versión 1
+
 ```bat
 docker build -t diagnosis-cancer:v1 .
+docker image ls diagnosis-cancer
+docker run -d --name diagnosis-cancer -p 8000:8000 diagnosis-cancer:v1
+docker ps
 ```
 
-Para conservar el historial después de eliminar el contenedor, crea un volumen Docker y móntalo:
+Abre `http://localhost:8000/docs` y comprueba la salud de la API:
 
 ```powershell
-docker volume create predictions-data
-$env:PREDICTIONS_HISTORY_API_KEY = Read-Host "Define una clave local para consultar el historial"
-docker run --rm -p 127.0.0.1:8000:8000 `
-  -e PREDICTIONS_DB_PATH=/data/predictions.db `
-  -e PREDICTIONS_HISTORY_API_KEY=$env:PREDICTIONS_HISTORY_API_KEY `
-  -v predictions-data:/data `
-  --name diagnosis-cancer diagnosis-cancer:v1
+curl.exe http://localhost:8000/health
 ```
 
-Abrir `http://127.0.0.1:8000/docs`. Detener con Ctrl+C.
+Para probar una predicción con la primera fila del dataset:
+
+```powershell
+$sample = Import-Csv .\data.csv | Select-Object -First 1
+$payload = $sample | Select-Object -Property * -ExcludeProperty id, diagnosis
+$body = $payload | ConvertTo-Json -Compress
+Invoke-RestMethod -Uri "http://localhost:8000/predict" `
+  -Method Post -ContentType "application/json" -Body $body
+```
+
+Consulta los logs y demuestra cómo detener y volver a iniciar el contenedor:
+
+```powershell
+docker logs diagnosis-cancer
+docker stop diagnosis-cancer
+docker ps -a
+docker start diagnosis-cancer
+curl.exe http://localhost:8000/health
+```
+
+### Cambiar el puerto del equipo anfitrión
+
+Elimina el contenedor anterior y publica el puerto interno `8000` en el puerto `9000` del equipo:
+
+```powershell
+docker stop diagnosis-cancer
+docker rm diagnosis-cancer
+docker run -d --name diagnosis-cancer-9000 -p 9000:8000 diagnosis-cancer:v1
+curl.exe http://localhost:9000/health
+```
+
+La aplicación debe abrir en `http://localhost:9000/docs`; no es necesario cambiar el puerto dentro del contenedor.
+
+### Construir y ejecutar la versión 2
+
+Cambia temporalmente el título en `app/main.py`:
+
+```python
+app = FastAPI(title="API de diagnóstico de cáncer - Versión 2", version="1.0", lifespan=lifespan)
+```
+
+Construye la nueva imagen, conserva ambas etiquetas y ejecuta la versión 2 en el puerto `9000`:
+
+```powershell
+docker build -t diagnosis-cancer:v2 .
+docker image ls diagnosis-cancer
+docker stop diagnosis-cancer-9000
+docker rm diagnosis-cancer-9000
+docker run -d --name diagnosis-cancer-v2 -p 9000:8000 diagnosis-cancer:v2
+```
+
+Abre `http://localhost:9000/docs` y comprueba que aparece el título de la versión 2. La imagen `diagnosis-cancer:v1` conserva la versión original. Si restauras el título original en el código, no vuelvas a construir `v2`.
+
+### Limpiar los contenedores
+
+Elimina los contenedores de la práctica; las imágenes `v1` y `v2` permanecen disponibles:
+
+```powershell
+docker stop diagnosis-cancer-v2
+docker rm diagnosis-cancer-v2
+```
 
 ## 3. Publicar en GitHub
 
