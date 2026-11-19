@@ -69,7 +69,7 @@ Y abrir `http://127.0.0.1:5000` para visualizar experimentos, parámetros y mét
 
 ## 1.2. Orquestar entrenamiento con Apache Airflow
 
-Airflow se ejecuta en Linux; en Windows, esta configuración usa Docker Desktop con contenedores Linux. Las dependencias compartidas por el contenedor están en `airflow-requirements.txt`; `Dockerfile.airflow` instala Airflow 2.10.5 para Python 3.11 con el archivo de constraints oficial. No agregues Airflow a `requirements.txt`, que corresponde a la API local de Windows.
+Airflow se ejecuta en Linux; en Windows, esta configuración usa Docker Desktop con contenedores Linux. `Dockerfile.airflow` instala Airflow 2.10.5 para Python 3.11 con el archivo de constraints oficial y las dependencias de entrenamiento de `airflow-requirements.txt`. MLflow corre en una imagen separada definida por `Dockerfile.mlflow` para aislar sus dependencias de las de Airflow. No agregues Airflow a `requirements.txt`, que corresponde a la API local de Windows.
 
 Si este equipo no puede ejecutar Docker/WSL ni habilitar virtualización, la ejecución local de Airflow en Windows no está soportada por el proyecto. Usa un host Linux (local o remoto) con Docker Compose. Desde la raíz del proyecto, inicia Airflow y MLflow:
 

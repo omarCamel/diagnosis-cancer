@@ -1,12 +1,11 @@
 services:
   mlflow:
-    image: diagnosis-cancer-airflow:local
+    image: diagnosis-cancer-mlflow:local
     build:
       context: .
-      dockerfile: Dockerfile.airflow
-    entrypoint:
-      - mlflow
+      dockerfile: Dockerfile.mlflow
     command:
+      - mlflow
       - server
       - --backend-store-uri
       - sqlite:////opt/airflow/mlflow-data/mlflow.db
