@@ -23,7 +23,7 @@ async def lifespan(_: FastAPI):
     yield
 
 
-app = FastAPI(title="API de diagnóstico de cáncer", version="1.0", lifespan=lifespan)
+app = FastAPI(title="API de diagnóstico de cáncer - Versión 2", version="1.0", lifespan=lifespan)
 
 
 @app.get("/health")
